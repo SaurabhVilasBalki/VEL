@@ -379,12 +379,18 @@ function AddCaseForm({
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
+function projectOf(id: string): string {
+  const match = id.match(/^([a-z]+)-/i);
+  return match ? match[1].toUpperCase() : "OTHER";
+}
+
 export default function TestCaseTracker() {
   const [cases, setCases] = useState<TestCase[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
   const [quickFilter, setQuickFilter] = useState<"none" | "missing-author" | "missing-automation">("none");
   const [showAdd, setShowAdd] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -518,6 +524,7 @@ export default function TestCaseTracker() {
   const filtered = useMemo(() => {
     if (!cases) return [];
     let list = cases;
+    if (projectFilter !== "all") list = list.filter((c) => projectOf(c.id) === projectFilter);
     if (statusFilter !== "all") list = list.filter((c) => c.status === statusFilter);
     if (quickFilter === "missing-author") list = list.filter((c) => !c.author);
     if (quickFilter === "missing-automation") list = list.filter((c) => !c.automatedBy);
@@ -537,7 +544,17 @@ export default function TestCaseTracker() {
       }
     }
     return list;
-  }, [cases, search, statusFilter, quickFilter]);
+  }, [cases, search, statusFilter, quickFilter, projectFilter]);
+
+  const projects = useMemo(() => {
+    if (!cases) return [];
+    const map = new Map<string, number>();
+    for (const c of cases) {
+      const p = projectOf(c.id);
+      map.set(p, (map.get(p) || 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [cases]);
 
   const counts = useMemo(() => {
     if (!cases) return { total: 0, missingAuthor: 0, missingAutomation: 0 };
@@ -603,6 +620,35 @@ export default function TestCaseTracker() {
             nextId={nextId}
             existingIds={new Set(cases.map((c) => c.id))}
           />
+        )}
+
+        {/* Project tabs */}
+        {projects.length > 1 && (
+          <div className="flex gap-1.5 mb-4 border-b border-slate-200">
+            <button
+              onClick={() => setProjectFilter("all")}
+              className={`text-sm px-3 py-2 -mb-px border-b-2 transition ${
+                projectFilter === "all"
+                  ? "border-indigo-600 text-indigo-700 font-medium"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              All ({counts.total})
+            </button>
+            {projects.map(([p, count]) => (
+              <button
+                key={p}
+                onClick={() => setProjectFilter(p)}
+                className={`text-sm px-3 py-2 -mb-px border-b-2 transition ${
+                  projectFilter === p
+                    ? "border-indigo-600 text-indigo-700 font-medium"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {p} ({count})
+              </button>
+            ))}
+          </div>
         )}
 
         {/* Filters */}
