@@ -202,7 +202,7 @@ function AddCaseForm({
   nextId: number;
   existingIds: Set<string>;
 }) {
-  const [id, setId] = useState(String(nextId));
+  const [id, setId] = useState(`VEL-${nextId}`);
   const [idError, setIdError] = useState(false);
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("not-set");
@@ -220,7 +220,7 @@ function AddCaseForm({
 
   const submit = () => {
     if (!title.trim()) return;
-    const finalId = id.trim() || String(nextId);
+    const finalId = id.trim() || `VEL-${nextId}`;
     if (existingIds.has(finalId)) {
       setIdError(true);
       return;
@@ -256,20 +256,17 @@ function AddCaseForm({
         </div>
         <div>
           <label className="text-xs font-medium text-slate-500 mb-1 block">Test case ID</label>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-mono text-slate-400">VEL-</span>
-            <input
-              value={id}
-              onChange={(e) => {
-                setId(e.target.value);
-                setIdError(false);
-              }}
-              placeholder={String(nextId)}
-              className={`w-full text-sm border rounded-lg px-3 py-2 outline-none focus:ring-2 font-mono ${
-                idError ? "border-rose-300 focus:ring-rose-100" : "border-slate-200 focus:ring-indigo-100 focus:border-indigo-300"
-              }`}
-            />
-          </div>
+          <input
+            value={id}
+            onChange={(e) => {
+              setId(e.target.value);
+              setIdError(false);
+            }}
+            placeholder={`VEL-${nextId}`}
+            className={`w-full text-sm border rounded-lg px-3 py-2 outline-none focus:ring-2 font-mono ${
+              idError ? "border-rose-300 focus:ring-rose-100" : "border-slate-200 focus:ring-indigo-100 focus:border-indigo-300"
+            }`}
+          />
           {idError && <p className="text-xs text-rose-500 mt-1">That ID is already in use.</p>}
         </div>
         <div>
@@ -511,7 +508,8 @@ export default function TestCaseTracker() {
   const nextId = useMemo(() => {
     if (!cases || cases.length === 0) return 1;
     const max = cases.reduce((m, c) => {
-      const n = parseInt(c.id, 10);
+      const match = c.id.match(/^VEL-(\d+)$/i);
+      const n = match ? parseInt(match[1], 10) : NaN;
       return Number.isFinite(n) && n > m ? n : m;
     }, 0);
     return max + 1;
@@ -525,14 +523,13 @@ export default function TestCaseTracker() {
     if (quickFilter === "missing-automation") list = list.filter((c) => !c.automatedBy);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      const velMatch = q.match(/^vel-(.+)$/);
-      if (velMatch) {
-        const exactId = velMatch[1];
-        list = list.filter((c) => c.id.toLowerCase() === exactId);
+      const looksLikeFullId = /^[a-z]+-.+$/i.test(q);
+      if (looksLikeFullId) {
+        list = list.filter((c) => c.id.toLowerCase() === q);
       } else {
         list = list.filter(
           (c) =>
-            c.id.includes(q) ||
+            c.id.toLowerCase().includes(q) ||
             c.title.toLowerCase().includes(q) ||
             (c.author || "").toLowerCase().includes(q) ||
             (c.automatedBy || "").toLowerCase().includes(q)
@@ -615,7 +612,7 @@ export default function TestCaseTracker() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by ID, VEL-ID, title, author, or automator..."
+              placeholder="Search by ID (e.g. VEL-3229), title, author, or automator..."
               className="w-full text-sm border border-slate-200 rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 bg-white"
             />
           </div>
@@ -673,10 +670,7 @@ export default function TestCaseTracker() {
                 {filtered.map((c) => (
                   <tr key={c.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 group">
                     <td className="px-2 py-1 align-top">
-                      <div className="flex items-center">
-                        <span className="text-xs font-mono text-slate-400 mr-0.5">VEL-</span>
-                        <EditableText value={c.id} placeholder="id" mono onCommit={(v) => updateId(c.id, v)} />
-                      </div>
+                      <EditableText value={c.id} placeholder="id" mono onCommit={(v) => updateId(c.id, v)} />
                     </td>
                     <td className="px-1 py-1 align-top">
                       <EditableText value={c.title} placeholder="Untitled test case" onCommit={(v) => updateCase(c.id, { title: v })} />
